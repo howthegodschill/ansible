@@ -1,0 +1,16 @@
+# /etc/systemd/system/routinator.service
+[Unit]
+Description=Routinator 3000
+Documentation=man:routinator(1)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/routinator --config=/etc/routinator/routinator.conf --syslog server
+Restart=on-failure
+RestartSec=5s
+User=routinator
+Group=routinator
+
+[Install]
+WantedBy=multi-user.target

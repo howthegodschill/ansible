@@ -1,0 +1,68 @@
+- name: Add Routinator User
+  ansible.builtin.user:
+    name: routinator
+    home: "{{ routinator_home }}"
+    shell: /usr/bin/false
+
+- name: Make the Yum Repo Directory Mutable
+  ansible.builtin.file:
+    path: /etc/yum.repos.d
+    attr: -i
+
+- name: Add NL Labs Repo
+  ansible.builtin.yum_repository:
+    name: nlnetlabs
+    description: NLnet Labs
+    file: nlnetlabs
+    baseurl: https://packages.nlnetlabs.nl/linux/centos/$releasever/main/$basearch
+    enabled: true
+
+- name: Make the Yum Repo Directory Immutable
+  ansible.builtin.file:
+    path: /etc/yum.repos.d
+    attr: +i
+
+- name: Install Routinator
+  ansible.builtin.yum:
+    update_cache: true
+    name: routinator
+    state: present
+  become: true
+
+- name: Deploy SSL Certificate
+  ansible.builtin.copy:
+    src: etc/pki/tls/certs/routinator.cer
+    dest: /etc/pki/tls/certs/
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Deploy Private Key
+  ansible.builtin.copy:
+    src: etc/pki/tls/private/routinator.key
+    dest: /etc/pki/tls/private/
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Systemd service definition
+  ansible.builtin.copy:
+    src: usr/lib/systemd/system/routinator.service
+    dest: /usr/lib/systemd/system/routinator.service
+    mode: 0644
+  notify:
+    - Restart rsyslog
+
+- name: Copy routinator configration file
+  ansible.builtin.template:
+    src: etc/routinator/routinator.conf.j2
+    dest: /etc/routinator/routinator.conf
+    mode: 0644
+  notify:
+    - Restart routinator
+
+- name: Enable and start systemd service
+  ansible.builtin.systemd:
+    name: routinator
+    state: started
+    enabled: true
