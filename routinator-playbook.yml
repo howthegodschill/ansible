@@ -1,0 +1,4 @@
+- name: Install Routinator
+  hosts: all
+  roles:
+    - role: routinator
