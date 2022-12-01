@@ -1,0 +1,30 @@
+# Django Deployment with Apache and mod_wsgi
+# The first bit in the WSGIScriptAlias line is the base URL path that you want
+# to server your application (/ at indicates the root url).
+# The second is the location of the WSGI file on your system, usually inside of your
+# project package (located in the src file of the django application)
+# If you install your project's Python dependencies inside a virtual environment, add the path
+# using WSGIPythonHome.
+
+LogLevel info
+ErrorLog /var/log/dmp/dmp.error.log
+CustomLog /var/log/dmp/dmp.custom.log common
+
+WSGIPythonPath /var/www/html/duo-dmp
+WSGIScriptAlias /duo-dmp /var/www/html/duo-dmp/src/wsgi.py
+
+<Directory /var/www/html/duo-dmp/src>
+    <Files wsgi.py>
+        Require all granted
+    </Files>
+</Directory>
+
+Alias /static /var/www/html/duo-dmp/static
+<Directory /var/www/html/duo-dmp/static>
+    Require all granted
+</Directory>
+
+Alias /admin /var/www/html/duo-dmp/admin
+<Directory /var/www/html/duo-dmp/admin>
+    Require all granted
+</Directory>

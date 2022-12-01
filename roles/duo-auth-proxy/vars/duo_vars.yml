@@ -1,0 +1,39 @@
+---
+# UNIVERSAL VARIABLES
+duo_api_host:
+
+duo_dev_service_account:
+
+duo_dev_service_password:
+
+# AUTH PROXY DEV VARIABLES
+auth_proxy_dev_ikey:
+
+auth_proxy_dev_skey:
+
+# AUTH PROXY STAGE AND PROD VARIABLES
+duo_ikey:
+
+duo_skey:
+
+duo_prod_service_account:
+
+duo_prod_service_password:
+
+# DMP DEV VARIABLES
+dmp_dev_ikey:
+
+dmp_dev_skey:
+
+dmp_dev_akey:
+
+dmp_dev_secret_key:
+
+# DMP STAGE AND PROD VARIABLES
+dmp_prod_ikey:
+
+dmp_prod_skey:
+
+dmp_prod_akey:
+
+dmp_prod_secret_key:

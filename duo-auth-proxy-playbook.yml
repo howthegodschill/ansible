@@ -1,0 +1,4 @@
+- name: Setup a Duo auth proxy server
+  hosts: all
+  roles:
+    - role: duo-auth-proxy

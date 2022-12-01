@@ -1,0 +1,165 @@
+---
+- name: Setup Duo Device Management Portal Stage Server
+  hosts: all
+  vars_files:
+    - vars/duo_vars.yml
+
+  tasks:
+    - name: Install dependencies
+      ansible.builtin.yum:
+        update_cache: true
+        name:
+          - gcc
+          - httpd-devel
+          - nano
+          - openldap-devel
+          - python3
+          - python3-devel
+          - python3-mod_wsgi
+          - python3-pip
+          - redis
+          - tcl
+          - wget
+          - zlib-devel
+        state: present
+
+    - name: Install DMP RPM
+      ansible.builtin.yum:
+        update_cache: true
+        name: company-duo-dmp
+        state: present
+      notify:
+        - Restart Apache
+      become: true
+
+    - name: Deploy FreeIPA CA cert
+      ansible.builtin.copy:
+        src: files/certs/ca/ipa_ca.crt
+        dest: /etc/pki/tls/certs/
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Deploy SSL certificate
+      ansible.builtin.copy:
+        src: dmp/stage/certs/dmp-stage.cer
+        dest: /etc/pki/tls/certs/
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Deploy private key
+      ansible.builtin.copy:
+        src: dmp/stage/certs/dmp-stage.key
+        dest: /etc/pki/tls/private/
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Install Python dependencies
+      ansible.builtin.pip:
+        requirements: /var/www/html/duo-dmp/requirements.txt
+        executable: pip3
+
+    - name: Deploy Python settings script
+      ansible.builtin.template:
+        src: dmp/stage/templates/settings.py.j2
+        dest: /var/www/html/duo-dmp/src/settings.py
+        mode: 0644
+      notify:
+        - Restart Apache
+      become: true
+
+    - name: Deploy DMP conf file
+      ansible.builtin.copy:
+        src: dmp/all/files/templates/duo-dmp.conf.j2
+        dest: /etc/httpd/conf.d/dmp.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify:
+        - Restart Apache
+      become: true
+
+    - name: Deploy SSL conf file
+      ansible.builtin.copy:
+        src: dmp/stage/templates/ssl.conf.j2
+        dest: /etc/httpd/conf.d/ssl.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify:
+        - Restart Apache
+      become: true
+
+    - name: Log rotation creation
+      ansible.builtin.copy:
+        src: dmp/all/files/dmp
+        dest: /etc/logrotate.d/dmp
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Create a log folder that is owned by Apache
+      ansible.builtin.file:
+        mode: 0744
+        owner: apache
+        path: /var/log/dmp
+        state: directory
+
+    - name: Enable and start Redis
+      ansible.builtin.systemd:
+        name: redis
+        state: started
+        enabled: true
+
+    - name: Remove the default welcome page
+      ansible.builtin.copy:
+        src: dmp/all/files/welcome.conf
+        dest: /etc/httpd/conf.d/welcome.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify:
+        - Restart Apache
+      become: true
+
+    - name: Update the http.conf file
+      ansible.builtin.copy:
+        src: dmp/all/files/httpd.conf
+        dest: /etc/httpd/conf/httpd.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify:
+        - Restart Apache
+      become: true
+
+    - name: Place database file
+      ansible.builtin.copy:
+        src: dmp/all/files/db.sqlite3
+        dest: /var/www/html/duo-dmp/db.sqlite3
+        owner: apache
+        group: apache
+        mode: 0644
+      notify:
+        - Restart Apache
+      become: true
+
+    - name: Change duo-dmp folder ownership to Apache
+      ansible.builtin.file:
+        path: /var/www/html/duo-dmp/
+        state: directory
+        owner: apache
+        group: apache
+        mode: 0644
+      notify:
+        - Restart Apache
+      become: true
+
+  handlers:
+    - name: Restart Apache
+      ansible.builtin.service:
+        name: httpd
+        state: restarted
+      become: true

@@ -1,0 +1,112 @@
+---
+- name: Setup Duo Auth Proxy Production Server
+  hosts: all
+  vars_files:
+    - vars/duo_vars.yml
+  tasks:
+    - name: Install libffi and pip dependencies
+      ansible.builtin.yum:
+        update_cache: true
+        name:
+          - libffi-devel
+          - python2-pip
+        state: present
+      become: true
+
+    - name: Install pexpect python package
+      ansible.builtin.pip:
+        name: pexpect
+
+    - name: Download Auth Proxy files
+      ansible.builtin.get_url:
+        url: https://dl.duosecurity.com/duoauthproxy-latest-src.tgz
+        dest: "/tmp"
+        mode: 0644
+      register: res
+
+    - name: Extract the Auth Proxy files
+      ansible.builtin.unarchive:
+        remote_src: true
+        src: "{{ res.dest }}"
+        dest: "/tmp"
+
+    - name: Run the makefile from the extracted directory
+      ansible.builtin.shell: ls -d /tmp/duoauthproxy*src
+      register: dir_name
+    - ansible.builtin.shell: make
+      args:
+        chdir: "{{ dir_name.stdout }}"
+      become: true
+
+    - name: Find the installer directory created by the makefile
+      ansible.builtin.shell: ls -d /tmp/duoauthproxy*/duoauthproxy-build
+      register: build_dir_name
+
+    - name: Install the Duo Auth Proxy
+      ansible.builtin.expect:
+        command: ./install
+        responses:
+          '\[\/opt\/duoauthproxy\]': "\n"
+          '\[duo_authproxy_svc\]': "\n"
+          '\[duo_authproxy_grp\]': "\n"
+          'Create an initialization script to run the proxy upon startup\? \[Yes\/no\]': "\n"
+          'Install the optional SELinux module\? \[yes\/No\]': "\n"
+      args:
+        chdir: "{{ build_dir_name.stdout }}"
+      become: true
+
+    - name: Copy FreeIPA CA cert
+      ansible.builtin.copy:
+        src: files/certs/ca/ipa_ca.crt
+        dest: /etc/pki/tls/certs/
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Deploy private key
+      ansible.builtin.copy:
+        src: auth-proxy/prod/certs/authproxy-1-prod.key
+        dest: /opt/duoauthproxy/usr/local/openssl/private/
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Deploy certificate
+      ansible.builtin.copy:
+        src: auth-proxy/prod/certs/authproxy-1-prod.cer
+        dest: /opt/duoauthproxy/usr/local/openssl/certs/
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Configure firewall for 636
+      ansible.posix.firewalld:
+        zone: "public"
+        permanent: true
+        state: enabled
+        immediate: true
+        port: 636/tcp
+
+    - name: Configure firewall for 389
+      ansible.posix.firewalld:
+        zone: "public"
+        permanent: true
+        state: enabled
+        immediate: true
+        port: 389/tcp
+
+    - name: Deploy Auth Proxy Config
+      ansible.builtin.template:
+        src: auth-proxy/prod/templates/authproxy.cfg.j2
+        dest: /opt/duoauthproxy/conf/authproxy.cfg
+        mode: 0644
+      notify:
+        - Start duoauthproxy service
+      become: true
+
+  handlers:
+    - name: Start duoauthproxy service
+      ansible.builtin.service:
+        name: duoauthproxy
+        state: started
+      become: true
