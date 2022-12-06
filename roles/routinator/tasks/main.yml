@@ -4,11 +4,6 @@
     home: "{{ routinator_home }}"
     shell: /usr/bin/false
 
-- name: Make the Yum Repo Directory Mutable
-  ansible.builtin.file:
-    path: /etc/yum.repos.d
-    attr: -i
-
 - name: Add NL Labs Repo
   ansible.builtin.yum_repository:
     name: nlnetlabs
@@ -17,10 +12,21 @@
     baseurl: https://packages.nlnetlabs.nl/linux/centos/$releasever/main/$basearch
     enabled: true
 
-- name: Make the Yum Repo Directory Immutable
-  ansible.builtin.file:
-    path: /etc/yum.repos.d
-    attr: +i
+- name: For https permit traffic in internal zone on port 8323/tcp
+  ansible.posix.firewalld:
+    zone: internal
+    port: 8323/tcp
+    permanent: true
+    immediate: true
+    state: enabled
+
+- name: For rtr permit traffic in internal zone on port 3323/tcp
+  ansible.posix.firewalld:
+    zone: internal
+    port: 3323/tcp
+    permanent: true
+    immediate: true
+    state: enabled
 
 - name: Install Routinator
   ansible.builtin.yum:
@@ -31,8 +37,8 @@
 
 - name: Deploy SSL Certificate
   ansible.builtin.copy:
-    src: etc/pki/tls/certs/routinator.cer
-    dest: /etc/pki/tls/certs/
+    src: etc/pki/tls/private/routinator.cer
+    dest: /etc/pki/tls/private/
     owner: root
     group: root
     mode: 0644
@@ -60,6 +66,17 @@
     mode: 0644
   notify:
     - Restart routinator
+
+- name: Copy a new nginx configration file into place, backing up the original if it differs from the copied version
+  ansible.builtin.copy:
+    src: etc/nginx/nginx.conf
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: 0755
+    backup: yes
+  notify:
+    - Reload nginx
 
 - name: Enable and start systemd service
   ansible.builtin.systemd:
