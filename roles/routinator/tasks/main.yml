@@ -1,8 +1,20 @@
+- name: Set some facts
+  ansible.builtin.set_fact:
+    routinator_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+
 - name: Add Routinator User
   ansible.builtin.user:
     name: routinator
     home: "{{ routinator_home }}"
     shell: /usr/bin/false
+
+- name: Add routinator cache directory
+  ansible.builtin.file:
+    path: "/var/lib/routinator/rpki-cache"
+    owner: routinator
+    group: routinator
+    mode: 0750
+    state: directory
 
 - name: Add NL Labs Repo
   ansible.builtin.yum_repository:
@@ -12,21 +24,14 @@
     baseurl: https://packages.nlnetlabs.nl/linux/centos/$releasever/main/$basearch
     enabled: true
 
-- name: For https permit traffic in internal zone on port 8323/tcp
+- name: Enable firewall ports specified in vars file
   ansible.posix.firewalld:
     zone: internal
-    port: 8323/tcp
+    port: "{{ item }}"
     permanent: true
     immediate: true
     state: enabled
-
-- name: For rtr permit traffic in internal zone on port 3323/tcp
-  ansible.posix.firewalld:
-    zone: internal
-    port: 3323/tcp
-    permanent: true
-    immediate: true
-    state: enabled
+  loop: "{{ firewall_ports }}"
 
 - name: Install Routinator
   ansible.builtin.yum:
@@ -35,21 +40,70 @@
     state: present
   become: true
 
-- name: Deploy SSL Certificate
-  ansible.builtin.copy:
-    src: etc/pki/tls/private/routinator.cer
-    dest: /etc/pki/tls/private/
+- name: Create /etc/routinator config directory
+  ansible.builtin.file:
+    path: /etc/routinator
     owner: root
     group: root
+    mode: 0755
+    state: directory
+
+- name: Create SSL cert directory
+  ansible.builtin.file:
+    path: "{{ routinator_cert_path }}"
+    owner: root
+    group: routinator
+    mode: 0750
+    state: directory
+
+- name: Create SSL key directory
+  ansible.builtin.file:
+    path: "{{ routinator_key_path }}"
+    owner: root
+    group: routinator
+    mode: 0750
+    state: directory
+
+- name: Deploy SSL Certificate
+  ansible.builtin.copy:
+    src: "{{ routinator_cert }}"
+    dest: "{{ routinator_cert_path }}/server.crt"
+    owner: root
+    group: routinator
     mode: 0644
+  notify: 
+    - Reload nginx
 
 - name: Deploy Private Key
   ansible.builtin.copy:
-    src: etc/pki/tls/private/routinator.key
-    dest: /etc/pki/tls/private/
+    src: "{{ routinator_key }}"
+    dest: "{{ routinator_key_path }}/server.key"
     owner: root
-    group: root
+    group: routinator
     mode: 0644
+  notify:
+    - Reload nginx
+
+- name: Run the nginx role to install it
+  ansible.builtin.include_role:
+    name: nginx
+
+- name: Create nginx default.d directory
+  ansible.builtin.file:
+    path: "/etc/nginx/default.d"
+    owner: nginx
+    group: nginx
+    mode: 0750
+    state: directory
+   
+- name: Make nginx use the defaults.d
+  ansible.builtin.lineinfile:
+    dest: /etc/nginx/nginx.conf
+    insertafter: '^\s*ssl_protocols.*$'
+    line: "include /etc/nginx/default.d/*.conf;"
+  become: true
+  notify:
+    - Reload nginx
 
 - name: Systemd service definition
   ansible.builtin.copy:
@@ -81,5 +135,5 @@
 - name: Enable and start systemd service
   ansible.builtin.systemd:
     name: routinator
-    state: started
+    daemon_reload: true
     enabled: true
