@@ -121,14 +121,11 @@
   notify:
     - Restart routinator
 
-- name: Copy a new nginx configration file into place, backing up the original if it differs from the copied version
-  ansible.builtin.copy:
-    src: etc/nginx/nginx.conf
-    dest: /etc/nginx/nginx.conf
-    owner: root
-    group: root
-    mode: 0755
-    backup: yes
+- name: Put nginx conf include file in-place to enable reverse-proxy
+  ansible.builtin.template:
+    src: etc/routinator/routinator-nginx.conf.j2
+    dest: /etc/nginx/default.d/routinator.conf
+    mode: 0644
   notify:
     - Reload nginx
 
