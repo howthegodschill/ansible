@@ -1,0 +1,9 @@
+        location = / {
+          proxy_pass https://127.0.0.1:{{tls_port}}/;
+        }
+        location /ui {
+          proxy_pass https://127.0.0.1:{{tls_port}}/ui;
+        }
+        location /api {
+          proxy_pass https://127.0.0.1:{{tls_port}}/api;
+        }
