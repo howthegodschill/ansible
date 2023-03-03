@@ -15,8 +15,8 @@
 # example, see etc/routinator.conf.example in the source distribution or
 # consult the manual page.
 
-repository-dir = "/var/lib/routinator/rpki-cache"
-rtr-listen = ["127.0.0.1:3323"]
-http-tls-listen = ["127.0.0.1:8323"]
-http-tls-cert = "/etc/pki/tls/private/routinator.cer"
-http-tls-key = "/etc/pki/tls/private/routinator.key"
+repository-dir = "{{ repository_dir }}"
+rtr-listen = ["{{ routinator_ip }}:{{ rtr_port }}"]
+http-tls-listen = ["127.0.0.1:{{ tls_port }}"]
+http-tls-cert = "{{ routinator_cert_path }}/server.crt"
+http-tls-key = "{{ routinator_key_path }}/server.key"
