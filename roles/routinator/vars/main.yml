@@ -1,0 +1,10 @@
+repository_dir: "/var/lib/routinator/rpki-cache"
+routinator_cert_path: "/etc/pki/nginx/"
+routinator_key_path: "/etc/pki/nginx/private/"
+routinator_cert: "files/routinator/{{ inventory_hostname }}/{{ inventory_hostname }}.crt"
+routinator_key: "files/routinator/{{ inventory_hostname }}/{{ inventory_hostname }}.key"
+rtr_port: "3323"
+tls_port: "8443"
+firewall_ports:
+  - 443/tcp
+  - 3323/tcp
